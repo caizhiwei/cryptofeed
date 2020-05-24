@@ -30,19 +30,32 @@ import zlib
 
 from sortedcontainers import SortedDict as sd
 
-from cryptofeed.defines import HUOBI_DM, BUY, SELL, TRADES, BID, ASK, L2_BOOK
+from cryptofeed.defines import HUOBI_DM, BUY, SELL, TRADES, BID, ASK, L2_BOOK, USER_TRADES
 from cryptofeed.feed import Feed
-from cryptofeed.standards import pair_std_to_exchange, pair_exchange_to_std, timestamp_normalize
+from cryptofeed.standards import pair_std_to_exchange, pair_exchange_to_std, timestamp_normalize, feed_to_exchange
+import base64
+import hmac
+import hashlib
+import json
+import datetime
+import time
+import urllib
+import asyncio
+from collections import namedtuple
 
 
 LOG = logging.getLogger('feedhandler')
+
+OrderMatch = namedtuple('OrderMatch', ['trade_id', 'trade_amount', 'trade_price', 'trade_type', 'timestamp' ])
 
 
 class HuobiDM(Feed):
     id = HUOBI_DM
 
     def __init__(self, pairs=None, channels=None, callbacks=None, config=None, **kwargs):
-        super().__init__('wss://www.hbdm.com/ws', pairs=pairs, channels=channels, callbacks=callbacks, config=config, **kwargs)
+        if 'address' not in kwargs:
+            kwargs['address']='wss://www.hbdm.com/ws'
+        super().__init__(pairs=pairs, channels=channels, callbacks=callbacks, config=config, **kwargs)
 
     def __reset(self):
         self.l2_book = {}
@@ -128,8 +141,41 @@ class HuobiDM(Feed):
                 await self._book(msg, timestamp)
             else:
                 LOG.warning("%s: Invalid message type %s", self.id, msg)
+        elif 'op' in msg:
+            if msg['op']=='notify':
+                if msg['topic'].startswith('orders'):
+                    await self._user_trade(msg, timestamp)
+            elif msg['op']=='auth' or msg['op']=='sub':
+                if msg[ 'err-code']==0:
+                    LOG.info("%s: op success %s", self.id, msg)
+                else:
+                    LOG.error("%s: op fail %s", self.id, msg)
+            elif msg['op']=='ping':
+                await self.websocket.send(json.dumps({"op": "pong","ts": int(time.time()*1000)}))
+            else:
+                LOG.warning("%s: Invalid message type %s", self.id, msg)
         else:
             LOG.warning("%s: Invalid message type %s", self.id, msg)
+
+    async def _user_trade(self, msg, timestamp):
+        feed=self.id
+        pair=msg['topic'].split('.')[1]
+
+        trades=[]
+        for trade in msg["trade"]:
+            _trade=OrderMatch(trade_id=trade["trade_id"],
+                  trade_amount=trade["trade_volume"],
+                  trade_price=trade["trade_price"], trade_type=trade["role"],
+                  timestamp=trade['created_at']/1000.0)
+            trades.append(_trade)
+        await self.callback(USER_TRADES, feed=feed, pair=pair, order_id=msg['order_id'], 
+              side=msg['direction'],
+              trade_amount=msg["trade_volume"], 
+              price=msg["price"], 
+              status=msg['status'],
+              trades=trades,
+              timestamp=msg['created_at']/1000.0, 
+              receipt_timestamp = timestamp)
 
     async def subscribe(self, websocket):
         self.websocket = websocket
@@ -137,11 +183,47 @@ class HuobiDM(Feed):
         client_id = 0
         for chan in self.channels if self.channels else self.config:
             for pair in self.pairs if self.pairs else self.config[chan]:
-                client_id += 1
                 pair = pair_exchange_to_std(pair)
-                await websocket.send(json.dumps(
-                    {
-                        "sub": f"market.{pair}.{chan}",
-                        "id": str(client_id)
-                    }
-                ))
+                client_id += 1
+                if chan==feed_to_exchange(self.id, USER_TRADES):
+                    await self.send_auth(websocket)
+                    await websocket.send(json.dumps(
+                        {
+                            "op": "sub",
+                            "topic": f'{chan}.{pair}',
+                            "cid": str(client_id)
+                        }
+                    ))
+                else:
+                    await websocket.send(json.dumps(
+                        {
+                            "sub": f"market.{pair}.{chan}",
+                            "id": str(client_id)
+                        }
+                    ))
+    async def send_auth(self,websocket):
+        timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        data = {
+            "AccessKeyId": self.api_key,
+            "SignatureMethod": "HmacSHA256",
+            "SignatureVersion": "2",
+            "Timestamp": timestamp
+        }
+        sign = self.generate_signature("GET", data, '/'+self.address.split('/')[-1])
+        data["op"] = "auth"
+        data["type"] = "api"
+        data["Signature"] = sign
+        await websocket.send(json.dumps(data))
+    
+    def generate_signature(self, method, params, request_path):
+        host_url = urllib.parse.urlparse(self.address).hostname.lower()
+        sorted_params = sorted(params.items(), key=lambda d: d[0], reverse=False)
+        encode_params = urllib.parse.urlencode(sorted_params)
+        payload = [method, host_url, request_path, encode_params]
+        payload = "\n".join(payload)
+        payload = payload.encode(encoding="UTF8")
+        secret_key = self.api_secret.encode(encoding="utf8")
+        digest = hmac.new(secret_key, payload, digestmod=hashlib.sha256).digest()
+        signature = base64.b64encode(digest)
+        signature = signature.decode()
+        return signature

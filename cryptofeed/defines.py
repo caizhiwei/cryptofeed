@@ -59,6 +59,7 @@ L2_BOOK_FUTURES = 'l2_book_futures'
 TRADES_FUTURES = 'trades_futures'
 TICKER_FUTURES = 'ticker_futures'
 
+USER_TRADES = 'user_trades'
 
 BUY = 'buy'
 SELL = 'sell'

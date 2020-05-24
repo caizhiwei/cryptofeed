@@ -58,6 +58,22 @@ class BookUpdateCallback(Callback):
         await super().__call__(feed, pair, delta, timestamp, receipt_timestamp)
 
 
+class UserTradeCallback(Callback):
+    """
+    For User Trades
+    trade_type: 'maker','taker'
+    """
+    async def __call__(self, *, feed: str, pair: str, order_id: str, trade_id=None, amount: Decimal, price: Decimal, trade_type: str,  timestamp: float, receipt_timestamp: float):
+        await super().__call__(feed, pair, order_id, trade_id, amount, price, trade_type, timestamp, receipt_timestamp)
+
+class UserTradeCallback(Callback):
+    """
+    For User Trades
+    trade_type: 'maker','taker'
+    """
+    async def __call__(self, *, feed: str, pair: str, order_id: str, side: str, trade_amount: Decimal, price: Decimal, status: str,  trades: list, timestamp: float, receipt_timestamp: float):
+        await super().__call__(feed, pair, order_id, side, trade_amount, price, status, trades, timestamp, receipt_timestamp)
+
 class LiquidationCallback(Callback):
     pass
 

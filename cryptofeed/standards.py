@@ -16,7 +16,7 @@ from cryptofeed.defines import (L2_BOOK, L3_BOOK, TRADES, TICKER, OPEN_INTEREST,
                                 POLONIEX, HITBTC, BITSTAMP, COINBASE, BITMEX, KRAKEN, KRAKEN_FUTURES, BINANCE, EXX, HUOBI, HUOBI_DM, OKCOIN,
                                 OKEX, COINBENE, BYBIT, FTX, TRADES_SWAP, TICKER_SWAP, L2_BOOK_SWAP, TRADES_FUTURES, TICKER_FUTURES, L2_BOOK_FUTURES,
                                 LIMIT, MARKET, FILL_OR_KILL, IMMEDIATE_OR_CANCEL, MAKER_OR_CANCEL, DERIBIT, BITTREX, BITCOINCOM, BINANCE_US,
-                                BINANCE_JERSEY, BINANCE_FUTURES, UPBIT, DSX)
+                                BINANCE_JERSEY, BINANCE_FUTURES, UPBIT, DSX, USER_TRADES)
 from cryptofeed.pairs import gen_pairs
 from cryptofeed.exceptions import UnsupportedTradingPair, UnsupportedDataFeed, UnsupportedTradingOption
 
@@ -224,6 +224,9 @@ _feed_to_exchange_map = {
     },
     LIQUIDATIONS: {
         BITMEX: 'liquidation'
+    },
+    USER_TRADES: {
+        HUOBI_DM: 'orders'
     }
 }
 

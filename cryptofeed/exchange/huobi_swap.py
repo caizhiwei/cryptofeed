@@ -18,4 +18,6 @@ class HuobiSwap(HuobiDM):
     id = HUOBI_DM
 
     def __init__(self, pairs=None, channels=None, callbacks=None, config=None, **kwargs):
-        Feed.__init__(self, 'wss://api.hbdm.com/swap-ws', pairs=pairs, channels=channels, callbacks=callbacks, config=config, **kwargs)
+        if 'address' not in kwargs:
+            kwargs['address']='wss://api.hbdm.com/swap-ws'
+        Feed.__init__(self, pairs=pairs, channels=channels, callbacks=callbacks, config=config, **kwargs)

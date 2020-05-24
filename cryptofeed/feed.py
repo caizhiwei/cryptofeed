@@ -9,14 +9,16 @@ from collections import defaultdict
 
 from cryptofeed.callback import Callback
 from cryptofeed.standards import pair_std_to_exchange, feed_to_exchange, load_exchange_pair_mapping
-from cryptofeed.defines import TRADES, TICKER, L2_BOOK, L3_BOOK, VOLUME, FUNDING, BOOK_DELTA, OPEN_INTEREST, BID, ASK, LIQUIDATIONS
+from cryptofeed.defines import TRADES, TICKER, L2_BOOK, L3_BOOK, VOLUME, FUNDING, BOOK_DELTA, OPEN_INTEREST, BID, ASK, LIQUIDATIONS, USER_TRADES
 from cryptofeed.util.book import book_delta, depth
 
 
 class Feed:
     id = 'NotImplemented'
 
-    def __init__(self, address, pairs=None, channels=None, config=None, callbacks=None, max_depth=None, book_interval=1000):
+    def __init__(self, address, pairs=None, channels=None, config=None, callbacks=None, max_depth=None, book_interval=1000, api_key=None, api_secret=None):
+        self.api_key=api_key
+        self.api_secret=api_secret
         self.hash = str(uuid.uuid4())
         self.uuid = self.id + self.hash
         self.config = defaultdict(set)
@@ -52,7 +54,8 @@ class Feed:
                           VOLUME: Callback(None),
                           FUNDING: Callback(None),
                           OPEN_INTEREST: Callback(None),
-                          LIQUIDATIONS: Callback(None)}
+                          LIQUIDATIONS: Callback(None),
+                          USER_TRADES: Callback(None)}
 
         if callbacks:
             for cb_type, cb_func in callbacks.items():
