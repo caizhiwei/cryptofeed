@@ -199,7 +199,8 @@ def huobi_dm_pairs():
     mapping = {
         "this_week": "CW",
         "next_week": "NW",
-        "quarter": "CQ"
+        "quarter": "CQ",
+        'next_quarter': "NQ"
     }
     r = requests.get('https://www.hbdm.com/api/v1/contract_contract_info').json()
     pairs = {}
